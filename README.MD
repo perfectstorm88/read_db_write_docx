@@ -7,6 +7,8 @@
   - 把表结构信息转换为docx的表格
   - 读取一个docx模板文件，写到word中的指定位置
 
+![image](https://user-images.githubusercontent.com/37857943/95714736-3e52a580-0c9b-11eb-9397-48e5017578d4.png)
+
 
 # 运行环境
 - python 3
@@ -21,7 +23,8 @@
 # 使用样例：
 
 模板样例
-![](./image/模板文档.jpg)
+![image](https://user-images.githubusercontent.com/37857943/95713613-6b05bd80-0c99-11eb-824d-b9b8c4ad581f.png)
+
 
 配置参数(config.yml)如下
 ```yaml
@@ -36,8 +39,8 @@ template: './template/模板：YY系统_数据库结构设计说明书.docx'
 output: './xx验收文档.docx'
 word_def:
   - anchor: 物理结构设计
-    tables:
-      - dept__医疗机构
+    tables: 
+      - dept__医疗机构  # 表名和后面的中文名用两个下划线'__'分开
       - dw_applyexamine__审核记录表
       - menu__菜单表
       - role__角色表
@@ -51,7 +54,9 @@ word_def:
 ```
 
 执行`python read_db_write_docx.py`后，输出内容如下:
-![](./image/输出文档.jpg)
+
+![image](https://user-images.githubusercontent.com/37857943/95713733-9e484c80-0c99-11eb-9e4f-9f350d61a803.png)
+
 
 
 
@@ -62,5 +67,7 @@ word_def:
 - https://github.com/python-openxml/python-docx/issues/33  在docx中删除一个段落
 - [分享一个MySQL数据库表结构导出word文档最方便的方法](https://www.hotbak.net/key/MYSQL数据库表结构导出成WORD文档.html): 网上的一个小工具，不支持mac，而且只是把表结构导成html，还需要手工调整格式，略麻烦些
 
+# 源代码
+https://github.com/perfectstorm88/read_db_write_docx
 
 
