@@ -1,0 +1,23 @@
+db_info:
+  host: 'localhost' 
+  port: 3306 
+  user: root
+  password: 'root'
+  db: 'mytest'
+  charset: "utf8"
+template: './template/模板：YY系统_数据库结构设计说明书.docx'
+output: './xx验收文档.docx'
+word_def:
+  - anchor: 物理结构设计
+    tables:
+      - dept__医疗机构
+      - dw_applyexamine__审核记录表
+      - menu__菜单表
+      - role__角色表
+      - roles_menus__角色与菜单关系表
+      - user__用户表
+      - users_roles__用户角色表
+      - log__日志表
+      - dw_zkmanager__质控管理表
+      - dw_dsmanager__数据源管理表
+      - dw_qxgz__数据清洗规则管表理
