@@ -1,6 +1,5 @@
 from docx import table
 import yaml
-import pymysql
 import json
 import os
 from docx import Document
@@ -10,9 +9,25 @@ with open(os.path.join(BASE_PATH, 'config.yml')) as f:
     conf = yaml.load(f, Loader=yaml.FullLoader)
 
 
-def get_tbl_struct(db_name, tbl_name, conn):
+def get_tbl_struct(tbl_name): # 获取表结构，返回
+    db_conf = conf['db_info']
+    db_type = db_conf['db_type']
+    if db_type == 'mysql':
+        return get_mysql_tbl_struct(tbl_name)
+    elif db_type == 'oracle':
+        return get_oracle_tbl_struct(tbl_name)
+    else:
+        raise Exception('不支持的数据库类型',db_type)
+
+def get_mysql_tbl_struct(tbl_name):
     """通过information_schema.COLUMNS, 读取表结构信息
     """
+    # 链接数据库
+    import pymysql
+    db_conf = conf['db_info']
+    db_name = db_conf['db']
+    conn = pymysql.connect(host=db_conf['host'], port=db_conf['port'], user=db_conf['user'],
+                           password=db_conf['password'], db=db_conf['db'], charset=db_conf['charset'])
     # 第二步：创建游标对象
     cursor = conn.cursor()  # cursor当前的程序到数据之间连接管道
     # 第三步：组装sql语句
@@ -32,7 +47,13 @@ def get_tbl_struct(db_name, tbl_name, conn):
         data.append(s)
     # 关闭游标
     cursor.close()
+    conn.close()
     return data
+
+def get_oracle_tbl_struct(tbl_name):
+    # TODO 增加oracle的读取方式
+    raise Exception('还不支持的oralce')
+    pass
 
 def insert_after_paragraph(_p1, _p2):
     """在docx中做插入操作
@@ -96,10 +117,6 @@ def createDocxTable(items, document):
 
 
 def read_db_write_docx():
-    # 链接数据库
-    db_conf = conf['db_info']
-    conn = pymysql.connect(host=db_conf['host'], port=db_conf['port'], user=db_conf['user'],
-                           password=db_conf['password'], db=db_conf['db'], charset=db_conf['charset'])
 
     # 往word中写入表格内容,可以支持多个段落定义
     for section in conf['word_def']:
@@ -113,21 +130,18 @@ def read_db_write_docx():
             x = document.add_paragraph(t, style=new_style)
             insert_after_paragraph(p, x)
             tbl_name, _ = t.split('__')  # 表名和中文名要用下划线分开
-            tbl_struct_info = get_tbl_struct(
-                db_conf['db'], tbl_name, conn)  # 获取表结构，返回
+
+            tbl_struct_info = get_tbl_struct(tbl_name)  # 获取表结构，返回
 
             # 创建并插入表结构
             docx_t = createDocxTable(tbl_struct_info, document)
             insert_after_paragraph(x, docx_t)
             p = docx_t
 
-    # 关闭数据库
-    conn.close()
-
-
-document = Document(conf['template'])
-read_db_write_docx()
-document.save(conf['output'])
+if __name__ == '__main__':
+    document = Document(conf['template'])
+    read_db_write_docx()
+    document.save(conf['output'])
 
 # https://github.com/python-openxml/python-docx/issues/156 在一段后面插入表格
 # 引用，https://github.com/python-openxml/python-docx/issues/823  如何根据文本内容找到某一段
