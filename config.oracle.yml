@@ -1,0 +1,15 @@
+db_info:
+  db_type: 'oracle'
+  host: '10.85.174.132'
+  port: 1521
+  user: 'dbcore'
+  password: 'dbcore'
+  db: 'dbcore'
+  charset: "utf8"
+template: './template/模板：YY系统_数据库结构设计说明书.docx'
+output: './template/终版：YY系统_数据库结构设计说明书.docx'
+word_def:
+  - anchor: 物理结构设计
+    tables:
+      - TB_HIS_ZY_ADM_REG__便民数据分析-报告查询-使用情况
+      - TB_YL_PATIENT_INFORMATION__便民数据分析-在线支付-支付详情

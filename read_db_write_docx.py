@@ -4,9 +4,10 @@ import json
 import os
 from docx import Document
 
+
 BASE_PATH = os.path.dirname(__file__)
-with open(os.path.join(BASE_PATH, 'config.yml')) as f:
-    conf = yaml.load(f, Loader=yaml.FullLoader)
+with open(os.path.join(BASE_PATH, 'config.yml'),encoding='utf8') as f:
+    conf = yaml.load(f, Loader=yaml.BaseLoader)
 
 
 def get_tbl_struct(tbl_name): # 获取表结构，返回
@@ -16,8 +17,59 @@ def get_tbl_struct(tbl_name): # 获取表结构，返回
         return get_mysql_tbl_struct(tbl_name)
     elif db_type == 'oracle':
         return get_oracle_tbl_struct(tbl_name)
+    elif db_type == 'sqlserver':
+        return get_sqlserver_tbl_struct(tbl_name)
     else:
         raise Exception('不支持的数据库类型',db_type)
+
+
+def get_sqlserver_tbl_struct(tbl_name):
+    """通过information_schema.COLUMNS, 读取表结构信息
+    """
+    # 链接数据库
+    import pymssql
+    db_conf = conf['db_info']
+    db_name = db_conf['db']
+    conn = pymssql.connect(host=db_conf['host'], port=int(db_conf['port']), user=db_conf['user'],
+                           password=db_conf['password'], database=db_conf['db'], charset=db_conf['charset'])
+    # 第二步：创建游标对象
+    cursor = conn.cursor()  # cursor当前的程序到数据之间连接管道
+    # 第三步：组装sql语句
+    #sql = f"select column_name,column_type,data_type,CHARACTER_MAXIMUM_LENGTH,is_nullable,column_comment from `information_schema`.`COLUMNS`  where `table_name` = '{tbl_name}' and `table_schema` = '{db_name}' order by ordinal_position"
+
+    sql=f"""
+                    SELECT
+                字段名    =c.name  ,
+                类型      =y.Name ,
+                字节      =c.max_length ,
+                主键      =case when exists(SELECT 1 FROM sysobjects where xtype='PK' and parent_obj=t.object_id and name in (
+                          SELECT name FROM sysindexes WHERE indid in(
+                          SELECT indid FROM sysindexkeys WHERE id =t.object_id AND colid=c.column_id))) then '√' else '' end,
+                是否可为空 =case when c.is_nullable='1' then 'Yes' else 'No'  end,
+                字段说明   =SUBSTRING(cast(ep.[value] as nvarchar(200)),1,charindex('|',cast(ep.[value] as nvarchar(200)))-1)
+        FROM sys.tables AS t INNER JOIN sys.columns  AS c ON t.object_id = c.object_id
+        LEFT JOIN  sys.extended_properties AS ep ON ep.major_id = c.object_id AND ep.minor_id = c.column_id
+        LEFT JOIN  sys.Types AS y ON y.User_Type_ID=c.User_Type_ID
+        WHERE ep.class =1   AND t.name='"""+tbl_name+"""'
+
+        """
+    # 第四步：执行sql语句
+    cursor.execute(sql)
+    # 从游标中取出所有记录放到一个序列中并关闭游标
+    result = cursor.fetchall()
+    # 查询表的结构
+    fields = list(result)
+    # 列名	数据类型	字段类型	长度	是否为空	默认值	备注
+    # print('|列名|数据类型|字段类型|长度|是否为空|备注|'.replace('|',','))
+    data = ['字段名|类型|字节|主键|是否可为空|字段说明'.split('|')]
+    # print('|--|--|--|--|--|--|')
+    for f in fields:
+        s = [str(i) if i is not None else '' for i in f]
+        data.append(s)
+    # 关闭游标
+    cursor.close()
+    conn.close()
+    return data
 
 def get_mysql_tbl_struct(tbl_name):
     """通过information_schema.COLUMNS, 读取表结构信息
@@ -26,7 +78,7 @@ def get_mysql_tbl_struct(tbl_name):
     import pymysql
     db_conf = conf['db_info']
     db_name = db_conf['db']
-    conn = pymysql.connect(host=db_conf['host'], port=db_conf['port'], user=db_conf['user'],
+    conn = pymysql.connect(host=db_conf['host'], port=int(db_conf['port']), user=db_conf['user'],
                            password=db_conf['password'], db=db_conf['db'], charset=db_conf['charset'])
     # 第二步：创建游标对象
     cursor = conn.cursor()  # cursor当前的程序到数据之间连接管道
@@ -51,9 +103,51 @@ def get_mysql_tbl_struct(tbl_name):
     return data
 
 def get_oracle_tbl_struct(tbl_name):
-    # TODO 增加oracle的读取方式
-    raise Exception('还不支持的oralce')
-    pass
+    """通过information_schema.COLUMNS, 读取表结构信息
+    """
+    # 链接数据库
+    import cx_Oracle
+    db_conf = conf['db_info']
+    db_name = db_conf['db']
+
+
+    conn = cx_Oracle.connect('%s/%s@%s:%s/%s' % (db_conf['user'], db_conf['password'], db_conf['host'], db_conf['port'], db_conf['db']))
+
+    # 第二步：创建游标对象
+    cursor = conn.cursor()  # cursor当前的程序到数据之间连接管道
+    # 第三步：组装sql语句
+    # sql = f"select column_name,column_type,data_type,CHARACTER_MAXIMUM_LENGTH,is_nullable,column_comment from `information_schema`.`COLUMNS`  where `table_name` = '{tbl_name}' and `table_schema` = '{db_name}' order by ordinal_position"
+    sql=f"""
+            SELECT
+                    A.COLUMN_NAME AS "字段名",
+                    DECODE(A.CHAR_LENGTH,
+                           0,CASE WHEN A.DATA_SCALE IS NULL OR A.DATA_PRECISION IS NULL THEN A.DATA_TYPE ELSE A.DATA_TYPE || '(' || A.DATA_PRECISION || ',' ||A.DATA_SCALE || ')' END,
+                           A.DATA_TYPE || '(' || A.CHAR_LENGTH || ')') as "类型",
+                    A.CHAR_LENGTH AS "字节",
+                    '' as "主键",
+                    A.NULLABLE AS "能否为空",
+                    B.COMMENTS AS "字段注释"
+                    FROM sys.user_tab_columns A
+                    INNER JOIN USER_COL_COMMENTS B ON A.TABLE_NAME = B.TABLE_NAME AND A.COLUMN_NAME = B.COLUMN_NAME
+            WHERE A.TABLE_NAME='"""+tbl_name+"""'
+        """
+    # 第四步：执行sql语句
+    cursor.execute(sql)
+    # 从游标中取出所有记录放到一个序列中并关闭游标
+    result = cursor.fetchall()
+    # 查询表的结构
+    fields = list(result)
+    # 列名	数据类型	字段类型	长度	是否为空	默认值	备注
+    # print('|列名|数据类型|字段类型|长度|是否为空|备注|'.replace('|',','))
+    data = ['字段名|类型|字节|主键|是否可为空|字段说明'.split('|')]
+    # print('|--|--|--|--|--|--|')
+    for f in fields:
+        s = [str(i) if i is not None else '' for i in f]
+        data.append(s)
+    # 关闭游标
+    cursor.close()
+    conn.close()
+    return data
 
 def insert_after_paragraph(_p1, _p2):
     """在docx中做插入操作
@@ -112,7 +206,8 @@ def createDocxTable(items, document):
         cells = table.rows[j].cells
         for i in range(colunm_len):
             cells[i].text = str(items[j][i])
-    # table.style = 'LightShading-Accent1'
+
+    table.style = 'Table Grid'
     return table
 
 

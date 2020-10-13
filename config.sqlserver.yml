@@ -1,0 +1,15 @@
+db_info:
+  db_type: 'sqlserver'
+  host: '172.130.208.29'
+  port: 1433
+  user: sa
+  password: 'root'
+  db: 'BMSJ_INDEX'
+  charset: "utf8"
+template: './template/模板：YY系统_数据库结构设计说明书.docx'
+output: './template/终版：YY系统_数据库结构设计说明书.docx'
+word_def:
+  - anchor: 物理结构设计
+    tables:
+      - LJM_BMSJFX_BGCX_SYQK__便民数据分析-报告查询-使用情况
+      - LJM_BMSJFX_ZXZF_ZFXQ__便民数据分析-在线支付-支付详情

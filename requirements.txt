@@ -1,2 +1,4 @@
-docx
+python-docx
 pymysql
+pymssql
+cx_Oracle
