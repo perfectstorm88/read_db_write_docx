@@ -7,7 +7,7 @@ db_info:
   db: 'mytest'
   charset: "utf8"
 template: './template/模板：YY系统_数据库结构设计说明书.docx'
-output: './xx验收文档.docx'
+output: './template/终版：YY系统_数据库结构设计说明书.docx'
 word_def:
   - anchor: 物理结构设计
     tables:
