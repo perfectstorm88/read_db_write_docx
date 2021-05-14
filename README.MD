@@ -42,35 +42,28 @@ python read_db_write_docx.py
 配置参数(config.yml)如下
 ```yaml
 db_info:
-  db_type: 'mysql'   #  也可以支持oracle、sqlserver
+  db_type: 'mysql'   #  也可以支持mysql、oracle、sqlserver三种类型
   host: 'localhost' 
   port: 3306 
   user: root
   password: 'root'
   db: 'mytest'
   charset: "utf8"
-template: './template/模板：YY系统_数据库结构设计说明书.docx'
-output: './xx验收文档.docx'
+template: './template/模板：YY系统_数据库结构设计说明书.docx' # 原始docx文件
+output: './xx验收文档.docx' # 输出文档
 word_def:
-  - anchor: 物理结构设计
-    tables:
-      - dept__医疗机构
+  - anchor: 物理结构设计     # 对应原始docx文件中的锚点,即写入到docx文件的哪个位置
+    tables:                # 定义了哪些表结构需要导出，如果不定义该字段，则导出所有表
+      - dept__医疗机构      # 表名__中文名
       - dw_applyexamine__审核记录表
       - menu__菜单表
       - role__角色表
-      - roles_menus__角色与菜单关系表
-      - user__用户表
-      - users_roles__用户角色表
-      - log__日志表
-      - dw_zkmanager__质控管理表
-      - dw_dsmanager__数据源管理表
-      - dw_qxgz__数据清洗规则管表理
 ```
+其中`word_def.tables` 定义了哪些表结构需要导出，如果不定义该字段，则默认把该数据库（`db_info.db`）下的所有表结构都导出来
 
 执行`python read_db_write_docx.py`后，输出内容如下:
 
 ![image](https://user-images.githubusercontent.com/37857943/95713733-9e484c80-0c99-11eb-9e4f-9f350d61a803.png)
-
 
 
 
@@ -81,6 +74,3 @@ word_def:
 - https://github.com/python-openxml/python-docx/issues/33  在docx中删除一个段落
 - [分享一个MySQL数据库表结构导出word文档最方便的方法](https://www.hotbak.net/key/MYSQL数据库表结构导出成WORD文档.html): 网上的一个小工具，不支持mac，而且只是把表结构导成html，还需要手工调整格式，略麻烦些
 - https://stackoverflow.com/questions/33069697/how-to-setup-cell-borders-with-python-docx 增加表边框
-
-
-

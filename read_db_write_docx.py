@@ -7,7 +7,7 @@ from docx import Document
 
 BASE_PATH = os.path.dirname(__file__)
 with open(os.path.join(BASE_PATH, 'config.yml'),encoding='utf8') as f:
-    conf = yaml.load(f, Loader=yaml.BaseLoader)
+    conf = yaml.load(f, Loader=yaml.FullLoader)
 
 
 def get_tbl_struct(tbl_name): # 获取表结构，返回
@@ -70,6 +70,50 @@ def get_sqlserver_tbl_struct(tbl_name):
     cursor.close()
     conn.close()
     return data
+def get_tbl_names():
+    db_conf = conf['db_info']
+    db_type = db_conf['db_type']
+    if db_type == 'mysql':
+        return get_mysql_tbl_names()
+    elif db_type == 'oracle':
+        raise Exception('oracle还不支持自动获取表名，需要自己手工定义word_def.tables')
+    elif db_type == 'sqlserver':
+        raise Exception('sqlserver还不支持自动获取表名，需要自己手工定义word_def.tables')
+    else:
+        raise Exception('不支持的数据库类型',db_type)
+
+def get_mysql_tbl_names():
+    """通过information_schema.TABLES, 读取表名，格式为{表名}__{备注}
+    """
+    # 链接数据库
+    import pymysql
+    db_conf = conf['db_info']
+    db_name = db_conf['db']
+    print("db_conf=",db_conf)
+    conn = pymysql.connect(host=db_conf['host'], port=int(db_conf['port']), user=db_conf['user'],
+                           password=db_conf['password'], db=db_conf['db'], charset=db_conf['charset'])
+                           
+    print("end db_conf=",conn)
+    # 第二步：创建游标对象
+    cursor = conn.cursor()  # cursor当前的程序到数据之间连接管道
+    # 第三步：组装sql语句
+    sql = f"select TABLE_NAME,TABLE_COMMENT from `information_schema`.`TABLES` as t where t.TABLE_SCHEMA='{db_conf['db']}' order by TABLE_NAME"
+    # sql = f"select column_name,column_type,data_type,CHARACTER_MAXIMUM_LENGTH,is_nullable,column_comment from `information_schema`.`COLUMNS`  where `table_name` = '{tbl_name}' and `table_schema` = '{db_name}' order by ordinal_position"
+    # 第四步：执行sql语句
+    cursor.execute(sql)
+    # 从游标中取出所有记录放到一个序列中并关闭游标
+    result = cursor.fetchall()
+    # 查询表的结构
+    rows = list(result)
+    data = []
+    # print('|--|--|--|--|--|--|')
+    for row in rows:
+        data.append(f'{row[0]}__{row[1]}')
+    # 关闭游标
+    cursor.close()
+    conn.close()
+    print(data)
+    return data
 
 def get_mysql_tbl_struct(tbl_name):
     """通过information_schema.COLUMNS, 读取表结构信息
@@ -78,8 +122,11 @@ def get_mysql_tbl_struct(tbl_name):
     import pymysql
     db_conf = conf['db_info']
     db_name = db_conf['db']
+    print("db_conf=",db_conf)
     conn = pymysql.connect(host=db_conf['host'], port=int(db_conf['port']), user=db_conf['user'],
                            password=db_conf['password'], db=db_conf['db'], charset=db_conf['charset'])
+
+    print("end db_conf=",conn)
     # 第二步：创建游标对象
     cursor = conn.cursor()  # cursor当前的程序到数据之间连接管道
     # 第三步：组装sql语句
@@ -178,7 +225,7 @@ def createDocxTable(items, document):
     """
 
     # 表字段长度
-    column_len_def = [2.8, 3.5, 2.5, 1.5, 2.0, 5.0]
+    column_len_def = [2.8, 2.5, 2.5, 1.5, 2.0, 5.0]
 
     # add table ------------------
     colunm_len = len(items[0])
@@ -216,15 +263,23 @@ def read_db_write_docx():
     # 往word中写入表格内容,可以支持多个段落定义
     for section in conf['word_def']:
         anchor = section['anchor']
-        tables = section['tables']
-        p = find_anchor_paragraph('物理结构设计')
+        tables = section.get('tables',[])
+        if not tables:
+            tables =  get_tbl_names()
+        p = find_anchor_paragraph(anchor)
         new_style = get_next_level_style(p)
         for t in tables:
             # 创建并插入标题
-            print(t)
-            x = document.add_paragraph(t, style=new_style)
+            if '__' in t:
+                tbl_name, tbl_name_chs = t.split('__')  # 表名和中文名要用下划线分开
+            else:
+                tbl_name,tbl_name_chs = t,''
+            if tbl_name_chs:
+                display_name = f'{tbl_name}({tbl_name_chs})'
+            else:
+                display_name =tbl_name
+            x = document.add_paragraph(display_name, style=new_style)
             insert_after_paragraph(p, x)
-            tbl_name, _ = t.split('__')  # 表名和中文名要用下划线分开
 
             tbl_struct_info = get_tbl_struct(tbl_name)  # 获取表结构，返回
 
@@ -234,6 +289,7 @@ def read_db_write_docx():
             p = docx_t
 
 if __name__ == '__main__':
+    # get_mysql_tbl_names()
     document = Document(conf['template'])
     read_db_write_docx()
     document.save(conf['output'])
